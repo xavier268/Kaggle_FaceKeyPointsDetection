@@ -86,7 +86,7 @@ computePredictions <- function() {
     r <- make1Prediction(im,kp)
     #message(r)
     d.lookup$Location[i] <- r
-    if(i %% 30 == 1) { print(i/nrow(d.lookup),digits=2)}
+    if(i %% 30 == 1) { print(i/nrow(d.lookup),digits=3)}
   }
   return (d.lookup)
 }
