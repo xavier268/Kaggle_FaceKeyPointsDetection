@@ -102,4 +102,4 @@ write.csv(x=s,
           row.names = FALSE
           )
 print("Done.")
-print(date)
+print(date())
