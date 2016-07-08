@@ -5,10 +5,8 @@
 * install mxnet R package
 * download dataset from Kaggle, and strore files in the dataset subdirectory
 
-## Run
-
-# run the script to generate a submission file
+## run the script to generate a submission file
 	
-	cd ./R
-	Rscript -e "source('g1model.R')"
+    cd ./R
+    Rscript -e "source('g1model.R')"
  
