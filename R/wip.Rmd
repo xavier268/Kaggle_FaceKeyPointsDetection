@@ -1,0 +1,251 @@
+---
+title: "Work in progress (wip)"
+output: 
+  html_document: 
+    toc: yes
+---
+
+
+# Loading the data
+
+We load from the compiled, preformatted data saved earlier :
+
+```{r Loading environement}
+load("d.train.RData")
+load("im.train.RData")
+load("im.test.RData")
+load("functions.viewing.RData")
+set.seed(42)
+ls()
+library(dplyr)
+library(tidyr)
+library(ripa)
+```
+
+# Investigating the data
+
+## Reformating d.train to df.train
+
+```{r reformating data}
+df.train <- as.tbl(d.train) %>%
+  mutate(imid = seq_along(d.train[,1])) %>%
+  gather(key = "item" , value = "coord" , -imid ) %>%
+  arrange(imid) %>%
+  extract(item,
+      into=c("side","part","xy"), 
+      regex="^(?:(left|right)_)?([[:alnum:]_]+)_(x|y)$"
+      ) %>%
+  spread(xy,coord) %>%
+  print()
+
+# Checking ...
+# as.data.frame(unique(select(df.train,side,part)))
+
+
+```
+
+
+
+## Computing sub-images
+
+Defining a utility that returns a sub-image (square) at a given location. Image is normalized. If image out of bounds, outside is greyed(128). Returned image is garanteed to be 2*s+1 x 2*s+1 in size.
+
+```{r computing sub images }
+
+# im is a 96 * 96 image. It is be reshaped anyway ...
+# s : sub image ranges (radius) from x-s to x+s ...
+m.subImage<- function(im, x=48, y=48, s=5) {
+  x <- round(x)
+  y <- round(y)
+  if(x-s<1 | x+s > 96 | y-s<1 | y+s > 96) { 
+    message("Wrong dimensions outside - clipping  :",x," - ",y)
+    
+    bg <- matrix(128,96*3,96*3)                   # create background
+    bg[97:192,97:192] <- matrix(im,96,96)         # copy im in background
+    mm <- bg[(96+x-s):(96+x+s),(96+y-s):(96+y+s)] # extract from background
+    return(normalize(c(mm)))
+  }
+  # message("im length : ",length(im)," x",x," y ",y)
+ 
+  mm <- matrix(im,ncol=96,nrow=96)
+  mm <- mm[(x-s):(x+s),(y-s):(y+s)] # the sub image ...
+  #  message("Length mm", length(c(mm)), " dim mm ",dim(mm))
+  r <- normalize(c(mm))
+  # message("r length : ",length(r))
+  return (r)
+}
+
+```
+
+Compute mean of normalized subimages from a dataframe selection.
+
+```{r }
+# selection is a dataframe, with imid, x, and x identifing the images to process
+# it returns the average normalized subimage.
+m.subImage.means <- function(selection) {
+  rowMeans(apply(
+    selection,
+    1,
+    FUN = function(r) {
+      m.subImage(im.train[r[1], ], r[2], r[3], s)
+    }
+  ), na.rm = TRUE)
+}
+
+```
+
+Utility to get all subimages for a selection from df.train
+
+```{r}
+m.subImages<- function(sel, s=5) {
+  
+  t(apply(sel,1,FUN = function(p) {
+  m.subImage(im.train[p[1],],p[2],p[3],s)
+}))
+}
+```
+
+
+```{r testing sub images}
+
+s <- 20 # subimage radius
+
+# test clipping
+
+image(matrix(rev(m.subImage(im.train[1,],90,50,s)),2*s+1,2*s+1),asp=1.,col=grey(0:255/255))
+title(main="Test clipping 1 ")
+
+image(matrix(rev(m.subImage(im.train[1,],90,92,s)),2*s+1,2*s+1),asp=1.,col=grey(0:255/255))
+title(main="Test clipping 2")
+
+image(matrix(rev(m.subImage(im.train[1,],10,50,s)),2*s+1,2*s+1),asp=1.,col=grey(0:255/255))
+title(main="Test clipping 3 ")
+
+
+
+# make selection
+sel <- df.train %>%
+  filter(side=="left",part=="eye_center", !is.na(x), !is.na(y)) %>%
+  select(imid,x,y) 
+
+# compute average and display
+# sel <- sample_n(sel,100) # test on random imid
+m.leftEye <- m.subImage.means(sel)
+image(matrix(rev(m.leftEye),2*s+1,2*s+1),asp=1.,col=grey(0:255/255))
+title(main="Left Eye Center")
+
+```
+
+
+## Locate a reference sub-image in a given full image.
+
+Inputs are : 
+ * im : full image (96 x 96)
+ * subim : subimage, squared ( 2s+1 * 2s+1)
+ 
+ Retun a matrix, where each row is  (x,y,c) where :
+ 
+ * subimage correlates exactly with subimage(im,x,y,s)
+ * c is the correlation factor - the maximum, the better
+
+```{r}
+# Create a tbl with x, y, and correlation results of the subImage and the image position
+m.subImage.findAll <- function(im, subim) {
+ 
+  subim <- c(subim)
+  s <- sqrt((length(subim)))
+  s <- round((s-1)/2)
+  message("Computed s for subimage : ",s)
+  
+  r <- as.tbl(expand.grid((1+s):(96-s),(1+s):(96-s))) %>%
+    transmute(x=Var1, y=Var2) %>%
+    mutate(c = NA)
+  
+    mutate(r,c = apply(r,1,FUN=function(p) {
+      i <- m.subImage(im,p[1],p[2],s)
+      cor(subim,c(i))
+    })) %>%
+      arrange(desc(c))
+  
+  
+}
+
+```
+
+
+Testing : find left eye in im.train ?
+
+```{r}
+i <- sample(1:(nrow(im.test)),1)
+r <- m.subImage.findAll(im = im.test[i,],subim = m.leftEye)
+par(c(2,1))
+image(1:96,1:96,matrix(im.test[i,],96,96),col=grey(1:255/255),asp=1.)
+points(x=r$x[1],y=r$y[1], col="blue")
+title(main=paste("Correlation leftEye: ",r$c[1],"-",r$c[20]))
+
+#remove unlikely positions
+r <- r[r$x>45 & r$y<60,]
+points(x=45,y=60,col="yellow",pch=3)
+points(x=r$x[1],y=r$y[1], col="red")
+
+```
+
+Results appears acceptable, though it does not correctly identify some eyes (mouth instead, glasses, right vs left, ...)
+
+# Clusterizing the various subimages
+
+We start with a selection of images (subset of df.train) and try to cluterize the related subimages, into various groups, then computing the means for each group.
+
+```{r}
+# make selection
+sel <- df.train %>%
+  filter(side=="left",part=="eye_center", !is.na(x), !is.na(y)) %>%
+  select(imid,x,y) 
+
+# DEBUG - use short sample
+# sel <- sample_n(sel,30)
+
+# get all the relevant subimages
+im.subs.leyc <- m.subImages(sel,15)
+clust <- kmeans(im.subs.leyc, centers = 10)$cluster
+for(i in 1:max(clust)) {
+  
+  image(1:31,1:31,matrix(colMeans(im.subs.leyc[clust==i,]),31,31),asp=1.,col=grey(0:255/255))
+  title(main=paste("cluster ",i))
+}
+
+
+```
+
+
+# Saving 
+
+## Saving utility function
+predictions is the structure containing the rows of predictions.
+
+```{r reformating predictions}
+predictions.save <- function(predictions) {
+  submission <- read.csv(file = "../Dataset/IdLookupTable.csv")
+  d.lookup <- as.character(names(d.train))
+  
+  for(i in 1:nrow(submission)){
+    imId <- submission$ImageId[i]
+    feat <- as.character(submission$FeatureName[i]) 
+    # required as.character() ! 
+    # Internal factor representations will not match corectly !!
+    submission$Location[i] <- predictions[imId,which(d.lookup==feat)]
+  }
+  
+  submission$ImageId <-  NULL
+  submission$FeatureName <- NULL
+  sfile <-format(Sys.time(), "SubmissionKnn%d%b%Yat%Hh%Mm%Ss.csv")
+  write.csv(submission,file=sfile, row.names = FALSE, quote = FALSE)
+  message("The file ",sfile," was saved for submission")
+}
+```
+
+# Saving
+
+```{r}
+# predictions.save(thePredictionsThatWereMade)
+```

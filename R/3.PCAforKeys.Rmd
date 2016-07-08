@@ -1,0 +1,148 @@
+---
+title: "3.PCAforKeys"
+output: 
+  html_document:
+    toc: yes
+---
+
+# Using Principal Component Analysis to compress the key points
+
+## Loading the data
+
+We load from the compiled, preformatted data saved earlier.
+We also define the random seed for repeatability.
+
+```{r Loading environment}
+set.seed(56)
+load("d.train.RData")
+load("im.train.RData")
+load("functions.viewing.RData")
+ls()
+```
+
+## Compute the PCA model on the training set
+
+We compute the model on the subset of keys that have absolutely no missing.
+
+* We use prcomp and not princomp, according to various recommandations : stability, etc ..
+* we **do not** use the scale and center provided. We will manage centering manually and scaling does not appear necessary.
+
+
+```{r Compute m.key.pca, the PCA model for keys }
+m.key.pca <- prcomp(~ . , data=d.train[d.train.complete,] - m.key.mean, retx = FALSE, 
+                      scale. = FALSE, center=FALSE )
+  
+summary(m.key.pca)
+plot(m.key.pca)
+```
+
+## Creating the transcoding functions
+
+The function **m.key.pca.predict()** takes a key set, and retun a set of 30 PC.
+
+Inversely, the function **m.key.pca.reconstruct()** takes a set of 30 PC and return the 30 keys. 
+
+The function **m.key.pca.truncate()** truncates an existing key, by converting back and forth from keys to PCS to keys while keeping only a few PCs. The keep parameter defines how many we keep.
+
+```{r}
+
+m.key.pca.predict <- function (key) {
+  predict(m.key.pca, newdata = key - m.key.mean)
+  }
+
+
+m.key.pca.reconstruct <- function(pcs) {
+  (pcs %*% t(m.key.pca$rotation)) + m.key.mean
+}
+
+m.key.pca.truncate <- function(key, keep=30) {
+  pcs <- m.key.pca.predict(key)
+  if(keep<30) {
+    pcs[,(keep+1):30] <- 0
+  }
+  return (m.key.pca.reconstruct(pcs))
+}
+
+```
+
+## Testing the transcoding
+
+### Transcoding real records, no truncation
+
+First, we test with some real keys from the training set, with no truncation.
+We transcode back and forth, and check the maximum absolute value for the difference.
+
+```{r}
+deltas <- matrix(0,10,1)
+for(i in 1:10){
+  k <- sample(d.train.complete, 1)
+  kk <- m.key.pca.truncate(d.train[k,])
+  deltas[i] = max(abs(d.train[k,]-kk))
+}
+
+deltas
+```
+
+Looks pretty good, if the above table shows only very small numbers.
+The largest absolute error was `r max(deltas)`
+
+### Transcoding real records, but truncating
+
+We are going to gradually truncate less and less (keep more and more) of the record.
+
+```{r}
+deltas <- matrix(0,30,1)
+k <- sample(d.train.complete, 1)
+for(i in 1:30){
+  kk <- m.key.pca.truncate(d.train[k,], i)
+  deltas[i] = max(abs(d.train[k,]-kk))
+}
+
+deltas
+rm(kk,k,deltas)
+```
+ 
+ 
+Basically, we need at least 5-6 PC to reconstruct correctly ... This is consistent with the variance analysis of the model above.
+ 
+How does it look graphically ? (the closer to the red, the more we keep) 
+
+```{r}
+for (j in 1:5) { # draw 5 pictures
+  k <- sample(d.train.complete, 1)
+  m.plotImage(im.train[k, ])
+  for (i in 1:30) {
+    r <- topo.colors(30)
+    m.plotKeypoints(m.key.pca.truncate(d.train[k, ], i), col = r[i])
+    rect(
+      xleft = (i * 2) ,
+      ybottom = 90 ,
+      xright = (i * 2 + 2),
+      ytop = 95,
+      col = r[i]
+    )
+  }
+  rect(
+    xleft = 62 ,
+    ybottom = 90 ,
+    xright = 95,
+    ytop = 95,
+    col = "red"
+  )
+  m.plotKeypoints(d.train[k, ], col = "red")
+  title(main = "Original(red) vs. truncated")
+}
+rm(i,j,k,r)
+```
+
+## Cleaning and saving
+
+We save what was added.
+
+```{r}
+save(m.key.pca,m.key.pca.truncate,m.key.pca.reconstruct, m.key.pca.predict, file = "m.key.pca.RData")
+ls()
+```
+
+
+*This file was compiled on  `r date()`*

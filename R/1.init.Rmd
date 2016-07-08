@@ -1,0 +1,108 @@
+---
+title: "1.init"
+params:
+  dir: "../Dataset/"
+  train: "training.csv"
+  test: "test.csv"
+  lookup: 'IdLookupTable.csv'
+output: 
+  html_document: 
+    toc: yes
+---
+
+# Kaggle - Face Key Points detection
+
+## What this script does
+
+This script loads the original **`r params$train`, `r params$test` and `r params$lookup`** files into memory. 
+As this requires some time, once loaded, it will save the related R object in specific RData environment files.
+
+
+## Loading the files
+
+The files will be loaded from the **`r params$dir`** directory.
+
+```{r}
+train.file <- paste0(params$dir, params$train)
+test.file  <- paste0(params$dir, params$test)
+lookup.file <- paste0(params$dir,params$lookup)
+
+d.train <- read.csv(train.file, stringsAsFactors=FALSE)
+d.lookup <- read.csv(lookup.file, stringsAsFactors=FALSE)
+```
+
+
+## Formatting the loaded data
+
+Let's rearrange a little bit the format of the loaded data.
+
+When loaded, **d.lookup** is in an empty data.frame format with `r dim(d.lookup)[1]` lines by 4 columns :
+
+```{r}
+head(d.lookup, 5)
+```
+
+Let's transform it into a simple vector containing the key names :
+
+```{r}
+d.lookup$Location <- NULL
+d.lookup$ImageId <- NULL
+d.lookup$RowId <- NULL
+d.lookup <- d.lookup[1:30,]
+```
+
+Ok. We now have a vector of strings :
+
+```{r}
+d.lookup
+```
+
+We also need to store the image in separate objects :
+
+```{r}
+im.train      <- d.train$Image
+d.train$Image <- NULL
+im.test       <- d.test$Image
+d.test$Image  <- NULL
+```
+
+To convert the images, we define these two functions :
+
+```{r}
+# Single image
+d.convertLoadedImage  <- function(image) {
+  as.integer(unlist(strsplit(image," ")))
+}
+
+
+# Rows of images
+d.convertLoadedImages <- function(images) {
+  n <- length(images)
+  res <- matrix(nrow =n,ncol = 9216)
+  for (i in 1:n) {
+      res[i,] <-d.convertLoadedImage(images[i])
+      }
+  return(res)
+}
+```
+
+And use them to convert the loaded image data.frames (it takes a while ...)
+
+```{r Loading images from csv files}
+im.train <- d.convertLoadedImages(im.train)
+im.test <- d.convertLoadedImages(im.test)
+```
+
+## Saving the environment
+
+Let's save loaded objects to file (`r params$env`)
+
+```{r Saving d.train, d.test, d.lookup, im.train, im.test}
+save(d.train,file="d.train.RData")
+save(im.train, file="im.train.RData")
+save(im.test,file="im.test.RData")
+
+```
+
+
+*This file was compiled on  `r date()`*

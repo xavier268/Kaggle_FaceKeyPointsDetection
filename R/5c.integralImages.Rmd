@@ -1,0 +1,167 @@
+---
+title: "5c.ExperimentingwithIntegralImages"
+output: 
+  html_document: 
+    toc: yes
+---
+
+
+# Experimenting with integral images
+
+(see PDF in the folder)
+
+## Loading the data
+
+We load from the compiled, preformatted data saved earlier :
+
+```{r Loading environement}
+set.seed(42)
+load("d.train.RData")
+load("im.train.RData")
+load("functions.viewing.RData")
+ls()
+```
+
+## Computing the integral image of an image vector
+
+The integral image ii has the same size as the original image i.
+
+It is computed in one pass, per recurrence, where i(x,y) is the original image and ii(x,y) is the integral image:
+
+* s(x,y) = s(x,y-1) + i(x,y)
+* ii(x,y) = ii(x-1,y) + s(x,y)
+
+where s(x,y) is the cumulative row sum, s(x,-1)=0 and ii(-1,y) = 0.
+
+```{r}
+im.integral<-function(im, size=96) {
+  
+  i <- matrix(im,size,size)
+  ii <- matrix(0,size,size)
+  s <- matrix(0,size,size)
+  
+  ii[1,1]<-i[1,1]
+  s[1,1] <- i[1,1]
+  
+  for(a in 2:size) {
+    s[a,1] <-i[a,1] 
+    ii[a,1]<-ii[a-1,1] + s[a,1]
+    s[1,a] <- s[1,a-1] + i[1,a]
+    ii[1,a] <- s[1,a]
+  }
+  
+  for(x in 2:size){
+    for(y in 2:size){
+      s[x,y]  <- s[x,y-1]   + i[x,y]
+      ii[x,y] <- ii[x-1,y]  + s[x,y]
+    }
+  }
+  return(ii)
+}
+
+```
+
+
+
+## Compute the sum in a box (a 1-filter)
+
+Using integral image to compute the sum in a box, **excluding** the first point, P1,(x1,y1), and (**including**) P2(x2,y2). (Doing so facilitates the tiling ...) There are no constraints on the relative location of P1 vs P2. The sign will depend upon the orientation.
+
+```{r}
+im.integral.box<-function(ii, x1,y1,x2,y2) {
+return(ii[x2,y2]  + ii[x1,y1] - ii[x1,y2]  - ii[x2,y1] )
+}
+```
+
+## Quick test ..
+
+
+```{r}
+i <- rep(1,25)
+ii <- im.integral(i,5)
+matrix(i,5,5)
+ii
+
+i <- rep(c(0,1,0,1),5)
+ii <- im.integral(i,5)
+matrix(i,5,5)
+ii
+
+i <-1:25
+ii <- im.integral(i,5)
+matrix(i,5,5)
+ii
+
+
+im.integral.box(ii,1,1,3,2) # 15
+im.integral.box(ii,1,2,5,4) # 128
+im.integral.box(ii,5,2,1,4) # - 128
+im.integral.box(ii,5,4,1,2) # + 128
+
+matrix(i,5,5)
+
+```
+
+Okay !
+
+## Compute a features set, for an sub-image im
+
+We define a filter box by its coordinate P1(x1,y1) (excluded) and P2 (included).
+
+## Compute a vertical various face oriented filters
+
+Useful to detect vertical symetry of the face ...
+
+```{r}
+im.integral.filter2v<- function(ii,x1,y1,x2,y2) {
+x3<- floor((x1+x2)/2)
+return (im.integral.box(ii,x1,y1,x3,y2)-im.integral.box(ii,x3,y1,x2,y2))
+}
+```
+
+The horizontal version :
+
+```{r}
+im.integral.filter2h<-function(ii,x1,y1,x2,y2) {
+y3<- floor((y1+y2)/2)
+return (im.integral.box(ii,x1,y1,x2,y3)-im.integral.box(ii,x1,y3,x2,y2))
+}
+```
+
+## Experimenting filters in various locations on an image ...
+
+
+```{r}
+k <- sample(1:nrow(im.train),1)
+ima <- scale(im.train[k,], center = TRUE, scale = TRUE) 
+ii <- im.integral(ima, size = 96)
+
+
+
+# generating all locations possible for the vertival-2 filter to try
+subimages <- expand.grid(seq(1,46,1),seq(1,46,1),seq(21,49,2),seq(21,49,2))
+x1 <- subimages$Var1
+y1 <- subimages$Var2
+x2 <- x1 + subimages$Var3
+y2 <- y1 + subimages$Var4
+det <- x1*y2 - x2*y1
+
+# Compute the filter result for each
+res <- matrix(0,nrow(subimages),1)
+for(i in 1:nrow(subimages)) {
+  res[i,1] <- abs(im.integral.filter2v(ii,x1[i],y1[i],x2[i],y2[i]))
+}
+
+
+image(1:96,1:96,matrix(ima,96,96),asp=1.,col=grey((0:255)/255))
+mmm <- min(res[res!=0])
+idx = which(res!=0 & det!=0 & res==mmm)
+head(sort(res[res!=0]))
+
+idx = which(res==mmm & det >0)
+points(x1[idx],y1[idx], pch=idx%%30, col="red",type="p")
+points(x2[idx],y2[idx], pch=idx%%30,col="green",type="p")
+
+```
+
+

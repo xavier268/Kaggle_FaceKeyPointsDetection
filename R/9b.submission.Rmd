@@ -1,0 +1,125 @@
+---
+title: "Prepare a submission file using kmeans on keyx"
+output: 
+  html_document: 
+    toc: yes
+---
+
+# Testing a very basic scheame with correlations
+
+## Loading the data
+
+We load from the compiled, preformatted data saved earlier :
+
+```{r Loading environement}
+load("d.train.RData")
+load("im.train.RData")
+load("im.test.RData")
+load("functions.viewing.RData")
+set.seed(24)
+ls()
+```
+
+## Basic idea
+
+We will use a scheme similar to the nearest neighbour scheme, using correlations between images.
+
+We limite ourselves to those images that are completely parameterized.
+
+## Identifying the top n closest images from the training set
+
+```{r}
+
+# select only the inside of images
+knn.wdw <- c(matrix(1:96*96,96,96)[20:76,10:86]) 
+
+
+knn.find<- function(im,n=1) {
+  im <- c(im)
+  d <- apply(im.train[d.train.complete,knn.wdw],1,FUN = function(x) {var(x,im[knn.wdw])})
+  dl <- sort(d, decreasing = TRUE)[n]
+  sel <- which(d>=dl)[1:n]
+  return (d.train.complete[sel])
+}
+
+```
+
+Testing ...
+```{r}
+
+
+k <- sample(1:nrow(im.test),1)
+n <- 31 # nbr of neighbours
+
+m.plotImage(im.test[k,])
+title(main="Original")
+
+sel <- knn.find(im.test[k,],n)
+
+for(i in 1:n) {
+m.plotImage(im.train[sel[i],])
+title(main="Closest")
+}
+m.plotImage(im.test[k,])
+for(i in 1:n) {
+m.plotKeypoints(d.train[sel[i],])
+}
+m.plotKeypoints(d.key.mean,col="yellow")
+
+m.plotImage(im.test[k,], kp=colMeans(d.train[sel,]), col="blue")
+m.plotKeypoints(d.key.mean,col="yellow")
+
+
+
+
+
+```
+
+## Computing predictions
+
+Using a 25 neighbour setting - scored : 4.29823
+
+(5 neighbours scored  4.45504)
+
+```{r computing predictions}
+
+knn.predict <- matrix(0,nrow(im.test),30)
+for(i in 1:nrow(im.test)) {
+  sel <- knn.find(im.test[i,],n=25)
+  knn.predict[i,] <- colMeans(d.train[sel,])
+  if(i%%25 == 0) {print(nrow(im.test) -i)}
+}
+
+```
+
+
+## Saving utility function
+
+predictions is the structure containing the rows of predictions.
+
+```{r reformating predictions}
+predictions.save <- function(predictions) {
+  submission <- read.csv(file = "../Dataset/IdLookupTable.csv")
+  d.lookup <- as.character(names(d.train))
+  
+  for(i in 1:nrow(submission)){
+    imId <- submission$ImageId[i]
+    feat <- as.character(submission$FeatureName[i]) 
+    # required as.character() ! 
+    # Internal factor representations will not match corectly !!
+    submission$Location[i] <- predictions[imId,which(d.lookup==feat)]
+  }
+  
+  submission$ImageId <-  NULL
+  submission$FeatureName <- NULL
+  sfile <-format(Sys.time(), "SubmissionKnn%d%b%Yat%Hh%Mm%Ss.csv")
+  write.csv(submission,file=sfile, row.names = FALSE, quote = FALSE)
+  message("The file ",sfile," was saved for submission")
+}
+```
+
+## Saving
+
+```{r}
+predictions.save(knn.predict)
+```

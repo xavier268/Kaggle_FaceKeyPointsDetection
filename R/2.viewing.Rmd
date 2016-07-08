@@ -1,0 +1,238 @@
+---
+title: "2.viewing"
+output: 
+  html_document:
+    toc: yes
+---
+
+# Viewing and understanding the training data
+
+## Loading the data
+
+We load from the compiled, preformatted data saved earlier :
+
+```{r Loading environement}
+load("d.train.RData")
+load("im.train.RData")
+load("im.test.RData")
+ls()
+```
+
+## Basic quantitative summaries
+
+
+```{r}
+dim(d.train)
+dim(im.train)
+
+dim(im.test)
+
+summary(d.train, digits = 1)[c(1,3,4,6),]
+
+```
+
+## Missing analysis
+
+
+As we can see below, __only the nose_tip__ is garanteed to be present all the time.
+A few eye centers (13) and mouth centers (33) are missing, but most are present.
+A lot of the rest (~ 4800, i.e. ~ 70% ) are missing !
+
+```{r}
+as.matrix(summary(d.train, digits = 1)[7,])
+```
+
+
+Let's check if x and y missing always match, as one would expect. More specifically, we are looking for a situation where either the x or the y value is NA, but not both, for the same keypoint.
+
+```{r}
+any(xor(is.na(d.train[, seq(1,30,2)]),is.na(d.train[, seq(2,30,2)])))
+```
+
+Good. There is none.
+
+
+
+
+## Plotting utility functions
+
+Plotting the keypoints, as an overlay to an existing earlier image.
+
+__Keys represent a dataframe where keys are the rows. Coordinates need to be adjusted, because matrix origin is top left, while display origin is bottom left.__
+
+```{r}
+m.plotKeypoints <- function(keys, col="red") {
+  x <- 96 - as.numeric(keys[seq(1,30,2)])
+  y <- 96 - as.numeric(keys[seq(2,30,2)])
+  points(x,y,col=col)
+  lines(mean(x),mean(y),col="yellow",pch=3)
+  # x value for various parts
+  le <- c(5,1,7) # left eye 
+  re <- c(11,3,9) #  right eye 
+  lb <- c(13,15) # left eyBrow
+  rb <- c(17,19) # right eyeBrow
+  mm <- c(23,27,25,29,23) # mouth
+  
+  lines(x = 96-keys[le],y=96-keys[le+1],col=col)
+  lines(x = 96-keys[re],y=96-keys[re+1],col=col)
+  lines(x = 96-keys[lb],y=96-keys[lb+1],col=col)
+  lines(x = 96-keys[rb],y=96-keys[rb+1],col=col)
+  lines(x = 96-keys[mm],y=96-keys[mm+1],col=col)
+  
+}
+```
+
+Plotting an image, optionnally with a title and keypoints.
+
+__The image is a row 1 x 9296.__
+
+```{r}
+m.plotImage <- function(image=rep.int(128,9216), kp=NA , title=NA, col="red") {
+  n <- sqrt(length(image))
+  image(
+    1:n,
+    1:n,
+    matrix(rev(image), nrow=n, ncol=n),
+    col=gray((0:255)/255),asp=1.)
+  if(!any(is.na(kp))) {
+    m.plotKeypoints(kp,col)
+  }
+  if(!is.na(title)) {
+    title(main=title)
+  }
+}
+```
+
+This is how it works : 
+
+```{r}
+m.plotImage(im.train[1,],kp = d.train[1,])
+m.plotImage(im.train[1,],kp = d.train[1,],col="orange")
+```
+
+## Symetries
+
+
+The function m.mirror will produce a symetrical key w.r.t. the middle vertical axis, by replacing all left element with their right element, while mirorring all coordinates.
+
+```{r}
+m.mirrorKey <- function(key) {
+  r <- key
+  r[seq(1,30,2)] <- 96-key[seq(1,30,2)]
+  left <-  c(1,5,7,13,15,23 ,    2,6,8,14,16,24)
+  right <- c(3,9,11,17,19,25,    4,10,12,18,20,26 ) 
+  a <- r[right]
+  r[right] <- r[left]
+  r[left] <- a
+  return (r)
+}
+```
+
+Let's see on an example
+
+```{r}
+m.plotImage(im.train[22,], kp=d.train[22,], col="red")
+m.plotKeypoints(m.mirrorKey(d.train[22,]),col="blue")
+title(main="Original(red) vs. mirror(blue)")
+```
+
+## Compute average figure
+
+Let's create the "average" figure from the complete training dataset.
+
+```{r}
+d.key.mean <- 
+  colMeans(na.omit(d.train))
+  length(d.key.mean)
+```
+
+Let's compare this with the means we get using all non NA cell, even on incomplete lines.
+
+```{r}
+d.key.mean.all <- colMeans(d.train, na.rm = TRUE)
+length(d.key.mean.all)
+
+plot(x=d.key.mean, y=d.key.mean.all )
+title(main="Mean all vs. rigourous mean")
+lines(x=c(0,95),y=c(0,95),col="yellow")
+
+sort(d.key.mean - d.key.mean.all)[-5:-26]
+```
+
+We see that there are only significant differences, when computing the means in both ways, for **"nose_tip_y"** and for **"mouth_center_bottom_lip_y"**
+
+Graphically :
+
+
+```{r}
+m.plotImage()
+m.plotKeypoints(d.key.mean,col="red")         # Moyenne sur elements strictement complets
+m.plotKeypoints(d.key.mean.all,col="blue")    # Moyenne extensive
+lines(x=c(95/2,95/2),y=c(1,96),col="yellow")  # Axe de symetrie latérale
+title(main="Compare d.key.mean vs. d.key.mean.all")
+```
+
+Let's check if we have symetry issues here ?
+
+```{r}
+m.plotImage()
+m.plotKeypoints(d.key.mean, col="red")
+m.plotKeypoints(m.mirrorKey(d.key.mean), col="green")
+title(main="d.key.mean and mirror")
+
+m.plotImage()
+m.plotKeypoints(d.key.mean.all, col="red")
+m.plotKeypoints(m.mirrorKey(d.key.mean.all), col="green")
+title(main="d.key.mean.all and mirror")
+
+```
+
+
+There does not seem to be any noticeable difference by symetry.
+
+**We therefore decide to __adjust__ both means for symetry**.
+
+```{r}
+
+m.key.mean <- (d.key.mean + m.mirrorKey(d.key.mean))/2
+m.key.mean.all <- (d.key.mean.all + m.mirrorKey(d.key.mean.all))/2
+
+
+m.plotImage()
+m.plotKeypoints(d.key.mean, col="red")
+m.plotKeypoints(m.key.mean, col="yellow")
+title(main="d.key.mean vs. m.k.mean(yellow)")
+
+m.plotImage()
+m.plotKeypoints(d.key.mean.all, col="red")
+m.plotKeypoints(m.key.mean.all, col="yellow")
+title(main="d.key.mean.all vs. m.k.mean.all(yellow)")
+
+
+
+```
+
+
+## Considering adjusting missing elements ?
+
+The massively missing elements, were we have only the nose, should probably not be adjusted. The rest is neglectable, and should probably be discarded.
+
+For the time being, we would just focus on the complete examples :
+
+```{r}
+d.train.complete <- which(!is.na(rowSums(d.train)))
+```
+
+There are `r length(d.train.complete)` complete training records, out of the `r dim(d.train)[1]` total training records.
+
+## Cleaning and saving
+
+We save selectively what we changed or created.
+
+```{r Saving environment}
+save(d.train,d.key.mean,d.key.mean.all, m.key.mean,m.key.mean.all, d.train.complete,file="d.train.RData")
+save(m.plotImage, m.plotKeypoints,m.mirrorKey,file="functions.viewing.RData")
+```
+
+
+*This file was compiled on  `r date()`*

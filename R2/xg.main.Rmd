@@ -1,0 +1,83 @@
+---
+title: "Main file"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load data
+
+Load, and initial computations
+
+```{r }
+source("xg.loadAll.R")
+source("xg.subimage.find.means.R")
+source("xg.reconstruct.R")
+source("xg.predictions.save.R")
+```
+
+# Filling test data
+
+```{r }
+d.test <- as.data.frame(matrix(NA,nrow(im.test),ncol(d.train)))
+colnames(d.test) <- colnames(d.train)
+```
+
+```{r testing on random images}
+i <- sample.int(500,1)
+r <- xg.subimage.find.means(im.test[i,], TRUE)
+
+
+
+points(x=d.means["mouth_center_x"],y=d.means["mouth_center_y"],col="yellow", pch=1)
+
+d.test[i, "mouth_center_x"] <- r$mouth[[1]]
+d.test[i, "mouth_center_y"] <- r$mouth[[2]]
+d.test[i,"left_eye_center_x"] <- r$leye[[1]]
+d.test[i,"left_eye_center_y"] <- r$leye[[2]]
+d.test[i,"right_eye_center_x"] <- r$reye[[1]]
+d.test[i,"right_eye_center_y"] <- r$reye[[2]]
+
+d.test[i,] <- xg.reconstruct(d.test[i,])
+
+
+
+```
+
+
+```{r computing test image keypoints}
+
+
+for (i in 1:nrow(im.test)) {
+  
+r <- xg.subimage.find.means(im.test[i, ], FALSE)
+
+# d.test[i, "mouth_center_x"] <- r$mouth[[1]]
+# d.test[i, "mouth_center_y"] <- r$mouth[[2]]
+d.test[i, "mouth_center_x"] <-d.means["mouth_center_x"]
+d.test[i, "mouth_center_y"] <- d.means["mouth_center_y"]
+d.test[i, "left_eye_center_x"] <- r$leye[[1]]
+d.test[i, "left_eye_center_y"] <- r$leye[[2]]
+d.test[i, "right_eye_center_x"] <- r$reye[[1]]
+d.test[i, "right_eye_center_y"] <- r$reye[[2]]
+
+d.test[i, ] <- xg.reconstruct(d.test[i, ])
+message(i,"/",nrow(im.test))
+}
+
+```
+
+```{r saving predictions}
+
+xg.predictions.save(d.test)
+```
+
+Score is in the 51-52 range, significantly worse than pure stupid approcah on means !
+
+* There must be something wrong with the formating ?
+* I definitely need a cross-validation/training validation tool ...
+
+
+*This file was compiled on `r date()`*

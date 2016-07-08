@@ -1,0 +1,252 @@
+---
+title: "4.preprocessImages"
+output: 
+  html_document:
+    toc: yes
+---
+
+# Pre-processing images
+
+*Started on `r date()`*
+
+## Loading the data
+
+We load from the compiled, preformatted data saved earlier.
+We also define the random seed for repeatability.
+
+```{r Loading ...}
+set.seed(56)
+load("im.train.RData")
+ls()
+```
+
+## Current ideas
+
+The general idea would be to reduce image dimensionality to identify where the nose or principal components of the face are, with a global approach.
+
+Reduction could be done by :
+
+* applying a high pass filter to detect shapes ?
+* applying PCA to the images ?
+** selecting a set of subimage covering evrything ?
+** carefully selecting the PCA sub-image locations around eye/month/nose ?
+** including images from larger, reduced precision, or sparse sub images ?
+
+## Splitting a picture in sub-images
+
+Since computing PCA for the full image is computionnally out of reach, lets try to compute on sub-image.
+
+One way to do it is to select the subimage via its indices.
+For instance, to select the sub-image [10:20,40:50] from the im.train vector, we can just compute the indexes and apply them to the image, in vector format. 
+
+The function below generates the index in the initial vector when provided with the sequence of pixels from the sub-image.
+
+```{r}
+im.pca.makesubindex <- function(xseq, yseq) {
+  as.vector(matrix(1:9216, nrow=96,ncol=96)[xseq,yseq])
+}
+```
+
+Let's see an example, using this to extract a 30x30 subimage.
+
+
+```{r}
+i <- rev(im.train[1,])
+ix <- 11:40
+iy <- 41:70
+ii <- i[im.pca.makesubindex(xseq = ix,yseq=iy)]
+## ii is stil a vector, can be processed directly ...
+
+par(mfrow = c(2,2))
+image(1:96,1:96,matrix(i,nrow=96,ncol=96), col=gray((0:255)/255),asp=1.)
+image(ix,iy, matrix(ii,nrow=length(ix),ncol=length(iy)), col=gray((0:255)/255),asp=1.)
+rm(i,ii,ix,iy)
+
+```
+
+What if we look at the entire image, retaining 1 pixel out of 4 ? of 6 ? of 8 ?
+
+```{r}
+i <- rev(im.train[1,])
+
+par(mfrow = c(2,2))
+image(1:96,1:96,matrix(i,nrow=96,ncol=96), col=gray((0:255)/255),asp=1.)
+
+ix <- seq(1,96,4)
+iy <- ix
+ii <- i[im.pca.makesubindex(xseq = ix,yseq=iy)]
+image(ix,iy, matrix(ii,nrow=length(ix),ncol=length(iy)), col=gray((0:255)/255),asp=1.)      
+
+ix <- seq(1,96,6)
+iy <- ix
+ii <- i[im.pca.makesubindex(xseq = ix,yseq=iy)]
+image(ix,iy, matrix(ii,nrow=length(ix),ncol=length(iy)), col=gray((0:255)/255),asp=1.)      
+
+ix <- seq(1,96,8)
+iy <- ix
+ii <- i[im.pca.makesubindex(xseq = ix,yseq=iy)]
+image(ix,iy, matrix(ii,nrow=length(ix),ncol=length(iy)), col=gray((0:255)/255),asp=1.)      
+
+      
+rm(i,ii,ix, iy)
+
+```
+
+## A first approach to PCA analysis of the images
+
+First, focusing on approx 1000 pixels. (we have ~ 10 000 pixels/image in total). Let's use the eye location from above.
+
+To be investigated later :
+
+* scaling/centering are probably a good idea. Is it really ? if yes, at the global level or subimage ?
+* setting 'tol' to eliminate anomalies ?
+
+
+```{r Compute PCA example1}
+
+mm <- prcomp(im.train[,im.pca.makesubindex(xseq=11:40,yseq=41:70)],scale. = TRUE, center=TRUE, retx = FALSE )
+
+plot(mm)
+rm(mm)
+
+```
+
+## Compressing the full image
+
+Now, what we want to to is :
+
+* define a set of sub images to be used
+* define (and store) the PCA models to compress each subimages
+* regroup the subimages in a single records, that represent a simplified view of the hypothsesis. 
+
+For simplicity, all areas, where subimages will be extracted, will be 32x32. 
+
+Let's say we will use 10 areas : 9 to partition the full image, and 1 as a low resolution of the global image.
+
+We define the following constants :
+
+* im.pca.area.idx is a matrix 12 x 1024, of the indices  pixels of the subimages, as the appear in the im.train vector
+
+
+
+
+```{r}
+im.pca.area.idx <- matrix(0,nrow = 12, ncol=1024)
+
+im.pca.area.idx[7,] <- im.pca.makesubindex(xseq=1:32,yseq=1:32)
+im.pca.area.idx[4,] <- im.pca.makesubindex(xseq=1:32,yseq=33:64)
+im.pca.area.idx[1,] <- im.pca.makesubindex(xseq=1:32,yseq=65:96)
+im.pca.area.idx[8,] <- im.pca.makesubindex(xseq=33:64,yseq=1:32)
+im.pca.area.idx[5,] <- im.pca.makesubindex(xseq=33:64,yseq=33:64)
+im.pca.area.idx[2,] <- im.pca.makesubindex(xseq=33:64,yseq=65:96)
+im.pca.area.idx[9,] <- im.pca.makesubindex(xseq=65:96,yseq=1:32)
+im.pca.area.idx[6,] <- im.pca.makesubindex(xseq=65:96,yseq=33:64)
+im.pca.area.idx[3,] <- im.pca.makesubindex(xseq=65:96,yseq=65:96)
+
+im.pca.area.idx[10,] <- im.pca.makesubindex(xseq=seq(1,96,3),yseq=seq(1,96,3))
+im.pca.area.idx[11,] <- im.pca.makesubindex(xseq=seq(2,96,3),yseq=seq(2,96,3))
+im.pca.area.idx[12,] <- im.pca.makesubindex(xseq=seq(3,96,3),yseq=seq(3,96,3))
+
+```
+
+Lets's check by plotting the subimages :
+
+```{r}
+i <- rev(im.train[1,])
+
+par(mfrow = c(1,3))
+for(a in 1:12){
+  ii <- i[im.pca.area.idx[a,]]
+  image(1:32,1:32,matrix(ii,nrow=32,ncol=32), col=gray((0:255)/255),asp=1.)
+  title(main=paste("Area",a))
+}
+rm(i,a)
+```
+
+Sounds good !
+
+## Generating the PCA models for each area
+
+We want to create a set of features, for each image, by agregating a selection of the PCA from each subimage. The models will be saved in a list **im.pca**, one model per area.
+
+Remember to use double brackets **[[]]** to access individual list elements !
+
+
+```{r Generating the subImage PCA models ( takes a while !!) }
+
+par(mfrow = c(1,1))
+im.pca <- list()
+im.pca.dev <- matrix(0,nrow=0,ncol=50)
+for(i in 1:12) {
+  im.pca[[i]] <- prcomp(
+    im.train[,im.pca.area.idx[i,]],
+    scale. = TRUE, 
+    center=TRUE, 
+    retx = FALSE )
+  plot(im.pca[[i]], main = paste("PCA model area",i))
+  im.pca.dev <- rbind(im.pca.dev, im.pca[[i]]$sdev)  #Save for later plotting
+}
+rm(i)
+```
+
+## Plotting the std deviations
+
+```{r}
+par(mfrow=c(1,1))
+image(1:dim(im.pca.dev)[2],1:dim(im.pca.area.idx)[1],log(t(im.pca.dev)))
+title(main = "Std deviations (log)")
+contour(1:dim(im.pca.dev)[2],1:dim(im.pca.area.idx)[1],log(t(im.pca.dev)))
+title(main = "Std deviations (log)")
+```
+
+## Generating the compressed images PCs
+
+We define a function to process an entire inmage into a row of aggregated PCs. Image i is provided in a vector form.
+```{r}
+
+# i is a nx9216 matrix 
+# pc is a n x (12*10) vector
+
+im.pca.predict <- function(i, keep=10) {
+  pc <-  matrix(0, nrow=nrow(i),ncol = nrow(im.pca.area.idx)*keep)
+  for(a in 1:nrow(im.pca.area.idx)) {
+    ## We keep "keep" PC per sub-image
+    pc[,((a-1)*keep + 1):(a*keep)] <-
+      predict(
+        im.pca[[a]], 
+        newdata = i[,im.pca.area.idx[a,]]
+        )[,1:keep]
+  }
+  return (pc)
+}
+
+##TEST
+
+im.pca.predict(im.train[1:2,])
+
+```
+
+
+## Computing the PC for the images
+
+This new set of input variables will be stored in **im.pca.pcs**
+
+```{r Generating the PCA components for im.train}
+
+im.pca.pcs <- im.pca.predict(im.train)
+
+```
+
+
+## Cleaning and saving
+
+We save what was created
+
+```{r Saving environment}
+rm(ii)
+save(im.pca.pcs, im.pca.predict, im.pca.area.idx, im.pca.makesubindex, file="im.pca.RData")
+ls()
+```
+
+
+*This file was compiled on  `r date()`*
