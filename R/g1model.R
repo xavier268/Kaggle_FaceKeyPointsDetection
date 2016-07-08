@@ -3,7 +3,7 @@
 # This version computes each keypoint separately ...
 
 # 
-
+print(date())
 require(mxnet)
 if(!exists("d.train")) { source("loadData.R") }
 
@@ -14,7 +14,7 @@ buildModel <- function(kp) {
   
   data <- mx.symbol.Variable("data")
   fc1 <- mx.symbol.FullyConnected(data, name = "fc1", num_hidden = 30)
-  act1 <- mx.symbol.Activation(fc1,act.type="tanh")
+  act1 <- mx.symbol.Activation(fc1,act.type="relu")
   fc2 <- mx.symbol.FullyConnected(act1, name = "fc2", num_hidden = 1)
   output <- mx.symbol.LinearRegressionOutput(fc2, name = "output")
   
@@ -35,6 +35,7 @@ buildModel <- function(kp) {
   # Train the model with the training data
   tic <- Sys.time()
   print(paste("Starting to train model for keypoint : ", kp))
+  print(date())
   
   model <- mx.model.FeedForward.create(
     symbol = output,
@@ -43,7 +44,7 @@ buildModel <- function(kp) {
     ctx = devices,
     num.round = 20,
     array.batch.size = 100,
-    learning.rate = 0.0001,
+    learning.rate = 0.001,
     momentum = 0.9,
     eval.metric = mx.metric.rmse,
     initializer = mx.init.uniform(0.07),
@@ -57,8 +58,6 @@ buildModel <- function(kp) {
 ## ---------------------------------------------------------------------------
 
 ## Build all the models, and save them
-
-
 model <- list()
 for(i in 1:30) {
   model[[i]] <- buildModel(i)
@@ -92,6 +91,7 @@ computePredictions <- function() {
   return (d.lookup)
 }
 print("Computing predictions")
+print(date())
 d.lookup <- computePredictions()
 
 print("Saving predictions")
@@ -102,3 +102,4 @@ write.csv(x=s,
           row.names = FALSE
           )
 print("Done.")
+print(date)
