@@ -98,7 +98,7 @@ sel1 <- (1:(max(d.lookup$ImageId)))[-sel2]
 # --------------------------------
 
 preds1 <- predict(m1,x,array.layout="colmajor")
-preds[f1,sel1] <- preds1[f1,sel1]
+preds[f1,sel1] <- preds1[1:8,sel1]
 
 
 ## --------------
