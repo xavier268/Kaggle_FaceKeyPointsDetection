@@ -43,7 +43,7 @@ buildModel <- function(kp) {
     ctx = devices,
     num.round = 20,
     array.batch.size = 100,
-    learning.rate = 0.000001,
+    learning.rate = 0.0001,
     momentum = 0.9,
     eval.metric = mx.metric.rmse,
     initializer = mx.init.uniform(0.07),
@@ -64,7 +64,19 @@ for(i in 1:30) {
   model[[i]] <- buildModel(i)
 }
 
-# -----------------------------------------------------------------------
+# ---------------------------
+## make a single prediction
+make1Prediction <- function(imid, kp, debug=FALSE) {
+  r <- predict(
+    model[[kp]],
+    X = t(data.matrix(d.test[imid,-1])),
+    array.layout = "colmajor")
+  if(debug) {
+    image(1:96,1:96,matrix(as.numeric(d.test[imid,-1]),96,96), asp=1.)
+    title(main=paste(colnames(d.train[,1:30])[kp]," : ", r))
+  }
+  return (r)
+}
 
 ## save predictions in d.lookup
 computePredictions <- function() {
@@ -75,9 +87,9 @@ computePredictions <- function() {
     r <- make1Prediction(im,kp)
     #message(r)
     d.lookup$Location[i] <- r
-    if(i %% 10 == 1) { message(i,"/",nrow(d.lookup))}
-    return (d.lookup)
+    if(i %% 30 == 1) { print(i/nrow(d.lookup),digits=2)}
   }
+  return (d.lookup)
 }
 print("Computing predictions")
 d.lookup <- computePredictions()
