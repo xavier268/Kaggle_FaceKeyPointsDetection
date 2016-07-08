@@ -1,0 +1,109 @@
+{
+  "nodes": [
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "data", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "convolution9_weight", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "convolution9_bias", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Convolution", 
+      "param": {
+        "cudnn_tune": "limited_workspace", 
+        "dilate": "(1,1)", 
+        "kernel": "(2,2)", 
+        "no_bias": "False", 
+        "num_filter": "5", 
+        "num_group": "1", 
+        "pad": "(0,0)", 
+        "stride": "(1,1)", 
+        "workspace": "512"
+      }, 
+      "name": "convolution9", 
+      "inputs": [[0, 0], [1, 0], [2, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Activation", 
+      "param": {"act_type": "relu"}, 
+      "name": "activation9", 
+      "inputs": [[3, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Pooling", 
+      "param": {
+        "global_pool": "False", 
+        "kernel": "(2,2)", 
+        "pad": "(0,0)", 
+        "pool_type": "max", 
+        "stride": "(2,2)"
+      }, 
+      "name": "pooling9", 
+      "inputs": [[4, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Flatten", 
+      "param": {}, 
+      "name": "flatten9", 
+      "inputs": [[5, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "fullyconnected9_weight", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "fullyconnected9_bias", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "FullyConnected", 
+      "param": {
+        "no_bias": "False", 
+        "num_hidden": "1"
+      }, 
+      "name": "fullyconnected9", 
+      "inputs": [[6, 0], [7, 0], [8, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "linearregressionoutput9_label", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "LinearRegressionOutput", 
+      "param": {"grad_scale": "1"}, 
+      "name": "linearregressionoutput9", 
+      "inputs": [[9, 0], [10, 0]], 
+      "backward_source_id": -1
+    }
+  ], 
+  "arg_nodes": [0, 1, 2, 7, 8, 10], 
+  "heads": [[11, 0]]
+}

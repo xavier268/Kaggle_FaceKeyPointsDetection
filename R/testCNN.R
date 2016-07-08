@@ -41,6 +41,9 @@ eval.y <- y[eval]
 dim(train.X) <- c(96,96,1,dim(train.X)[3])
 dim(eval.X) <- c(96,96,1,dim(eval.X)[3])
 
+# =======================
+# Initial training
+# =======================
 
 # train model
 model <- mx.model.FeedForward.create (
@@ -50,11 +53,39 @@ model <- mx.model.FeedForward.create (
   eval.metric = mx.metric.rmse,
   ctx  = mx.cpu(),
   symbol = net,
-  num.round  = 4,
+  num.round  = 2,
   learning.rate  = 0.001,
   momentum = 0.9,
   wd = 0.00001,
   initializer  = mx.init.Xavier(),
   verbose = TRUE,
+  epoch.end.callback = mx.callback.save.checkpoint("testCNNmodel"),
   array.layout = "colMajor"
 )
+
+# ==================================
+# resume training from checkpoints
+# ==================================
+print("Continuing from saved model")
+
+ll <- mx.model.load("testCNNmodel",2)
+
+m2 <- mx.model.FeedForward.create (
+    arg.params = ll$arg.params,
+    symbol = ll$symbol,
+    aux.params = ll$aux.params,
+    
+    num.round  = 4,
+    X = train.X,
+    y = train.y,
+    eval.data = list(data=eval.X, label=eval.y),
+    eval.metric = mx.metric.rmse,
+    ctx  = mx.cpu(),
+    learning.rate  = 0.001,
+    momentum = 0.9,
+    wd = 0.00001,
+    # initializer  = mx.init.Xavier() - NO MORE INITIALIZER !
+    verbose = TRUE,
+    epoch.end.callback = mx.callback.save.checkpoint("testCNNmodel"),
+    array.layout = "colMajor"
+  )
