@@ -7,6 +7,6 @@
 
 ## run the script to generate a submission file
 	
-    cd ./R
-    Rscript -e "source('g1model.R')"
+        cd ./R
+        Rscript -e "source('g1model.R')"
  
