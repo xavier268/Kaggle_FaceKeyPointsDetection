@@ -5,15 +5,29 @@
 # 
 print(date())
 require(mxnet)
-if(!exists("d.train")) { source("loadData.R") }
+require(dplyr)
+require(tidyr)
+
+if (!exists("d.train")) {
+  if (file.exists("loadData.RData")) {
+    print("Loading compressed data")
+    load("loadData.RData")
+  } else {
+    print("Generating data")
+    source("loadData.R")
+  }
+  
+}
 
 
 ## --------------------------------------------------------------------
+# define model version
+m.version <- 1
 buildModel <- function(kp) {
   # input : kp = a vector of int (1:30), to identify the feature we want to learn
   
   data <- mx.symbol.Variable("data")
-  fc1 <- mx.symbol.FullyConnected(data, name = "fc1", num_hidden = 30)
+  fc1 <- mx.symbol.FullyConnected(data, name = "fc1", num_hidden = 60)
   act1 <- mx.symbol.Activation(fc1,act.type="relu")
   fc2 <- mx.symbol.FullyConnected(act1, name = "fc2", num_hidden = length(kp))
   output <- mx.symbol.LinearRegressionOutput(fc2, name = "output")
@@ -68,53 +82,73 @@ buildModel <- function(kp) {
 ## ---------------------------------
 ## segment features
 ## ---------------------------------
-f1 <- c(1,2,3,4,21,22,29,30)  # frequently provided
+
+print("Buiding/loading models")
+f1 <- c(1,2,3,4,21,22,29,30)  # frequently provided, more reliable
 f2 <- 1:30                    # full range
 
-m1 <- buildModel(f1)
-m2 <- buildModel(f2)
+mx.ctx.default(mx.cpu())
+
+if(file.exists("m1Model-symbol.json")) {
+  print(paste0("Loading saved model 1, version ",m.version))
+  m1 <- mx.model.load("m1Model",m.version)
+} else {
+  m1 <- buildModel(f1)
+  mx.model.save(m1,prefix = "m1Model",m.version)
+}
+if(file.exists("m2Model-symbol.json")) {
+  print(paste0("Loading saved model 2, version ",m.version))
+  m2 <- mx.model.load("m2Model",m.version)
+} else {
+  m2 <- buildModel(f2)
+  mx.model.save(m2,prefix = "m2Model",m.version)
+}
+
+
+
+
 
 ## --------------------------------
 ##  Compute full predictions with m2 (less precise)
 ## --------------------------------
 
+print("Computing predictions")
 
 x <- t(data.matrix(d.test[,-1]))
 preds <- predict(m2,x,array.layout="colmajor")
 colnames(preds) <- 1:1783
 rownames(preds) <- (colnames(d.train[,1:30]))
 
-## ---------------------------------
-#  selction of the submission images where m1 or m2 model is needed
-## ---------------------------------
-
-sel2 <- d.lookup$FeatureName %in% colnames(d.train[0,1:30])[-f1]
-sel2 <- unique(d.lookup$ImageId[sel2])
-
-sel1 <- (1:(max(d.lookup$ImageId)))[-sel2]
 
 # --------------------------------
-## Now, we overwite only 8 kp with with m1 (more precise)
+## Now, we overwite the core 8 kp with with m1 (more precise)
 # --------------------------------
 
 preds1 <- predict(m1,x,array.layout="colmajor")
-preds[f1,sel1] <- preds1[1:8,sel1]
+preds[f1,] <- preds1[1:8,]
 
+# ensure predictions are between 0 and 1
+preds <- apply(preds, FUN = function(x) {min(96,max(1,x))}, MARGIN = c(1,2))
 
 ## --------------
-# fill up submission
+# format submission
 ## --------------
 print("Formating submission")
 
-for(i in 1:nrow(d.lookup)){
-  d.lookup$Location <- preds[d.lookup$FeatureName,d.lookup$ImageId]
-  if(i%%10 == 1) { message (i,"/",nrow(d.lookup))}
-}
+p <- tbl_df(preds) %>% 
+  mutate(FeatureName = colnames(d.train[1,1:30]))%>%
+  gather(key=ImageId, val=prediction, -FeatureName) %>%
+  mutate(ImageId = as.integer(ImageId)) 
+
+s <- d.lookup %>% 
+  left_join(p, type="left", match="first",by = c("ImageId", "FeatureName")) %>%
+  transmute(RowId = RowId, Location = prediction)
+
+# Saving predictions
 
 print("Saving predictions")
-s <- tbl_df(d.lookup) %>% transmute(RowId = RowId, Location = Location)
 write.csv(x=s, 
-          file = paste0("SubmissiongNmodel",date(),".csv"), 
+          file = paste0("SubmissiongNmodel-v",m.version,"-",date(),".csv"), 
           quote = FALSE, 
           row.names = FALSE
 )
