@@ -2,6 +2,8 @@
 # training only with those images where that keypoint is fully defined
 # This version will try to compute several keypoints simultaneously
 
+# It computes the 8 most known kp, then extrapolates the others.
+
 # using deep learning netwkork (DNN)
 
 # 
@@ -20,11 +22,12 @@ if (!exists("d.train")) {
   }
   
 }
-
+print("Loading keypoint interpolation tool")
+if(!exists("coefMatrix")) { source("kpmodel.R")}
 
 ## --------------------------------------------------------------------
 # define model version
-m.version <- 7
+m.version <- 8
 buildModel <- function(kp) {
   # input : kp = a vector of int (1:30), to identify the feature we want to learn
   
@@ -37,10 +40,10 @@ buildModel <- function(kp) {
   fc1 <- mx.symbol.FullyConnected(rdata, num_hidden = 100)
   act1 <- mx.symbol.Activation(fc1,act.type="relu")
   
-  # fc2 <- mx.symbol.FullyConnected(act1, num_hidden = 50)
-  # act2 <- mx.symbol.Activation(fc2,act.type="relu")
+  fc2 <- mx.symbol.FullyConnected(act1, num_hidden = 50)
+  act2 <- mx.symbol.Activation(fc2,act.type="relu")
   
-  fc3 <- mx.symbol.FullyConnected(act1, num_hidden = length(kp))
+  fc3 <- mx.symbol.FullyConnected(act2, num_hidden = length(kp))
  
   output <- mx.symbol.LinearRegressionOutput(fc3, name = "output")
   
@@ -86,10 +89,10 @@ buildModel <- function(kp) {
 
 
 ## ---------------------------------
-## segment features
+## Build single model
 ## ---------------------------------
 
-print("Buiding/loading models")
+print("Buiding/loading only one model")
 f1 <- c(1,2,3,4,21,22,29,30)  # frequently provided, more reliable
 f2 <- 1:30                    # full range
 
@@ -102,36 +105,26 @@ if(file.exists("m1Model-symbol.json")) {
   m1 <- buildModel(f1)
   mx.model.save(m1,prefix = "m1Model",m.version)
 }
-if(file.exists("m2Model-symbol.json")) {
-  print(paste0("Loading saved model 2, version ",m.version))
-  m2 <- mx.model.load("m2Model",m.version)
-} else {
-  m2 <- buildModel(f2)
-  mx.model.save(m2,prefix = "m2Model",m.version)
-}
+
 
 
 
 
 
 ## --------------------------------
-##  Compute full predictions with m2 (less precise)
+##  Compute partial predictions with m1 (precise)
 ## --------------------------------
 
 print("Computing predictions")
 
 x <- t(data.matrix(d.test[,-1]))
-preds <- predict(m2,x,array.layout="colmajor")
+
+preds1 <- t(predict(m1,x,array.layout="colmajor")) # n x 8
+preds  <- t(predictkp(preds1)) # 30 x n
 colnames(preds) <- 1:1783
 rownames(preds) <- (colnames(d.train[,1:30]))
 
 
-# --------------------------------
-## Now, we overwite the core 8 kp with with m1 (more precise)
-# --------------------------------
-
-preds1 <- predict(m1,x,array.layout="colmajor")
-preds[f1,] <- preds1[1:8,]
 
 # ensure predictions are between 0 and 1
 preds <- apply(preds, FUN = function(x) {min(96,max(1,x))}, MARGIN = c(1,2))
@@ -154,7 +147,7 @@ s <- d.lookup %>%
 
 print("Saving predictions")
 write.csv(x=s, 
-          file = paste0("SubmissiongDmodel-v",m.version,"-",date(),".csv"), 
+          file = paste0("SubmissiongKmodel-v",m.version,"-",date(),".csv"), 
           quote = FALSE, 
           row.names = FALSE
 )
