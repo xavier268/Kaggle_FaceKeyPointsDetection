@@ -24,20 +24,20 @@ if (!exists("d.train")) {
 
 ## --------------------------------------------------------------------
 # define model version
-m.version <- 5
+m.version <- 6
 buildModel <- function(kp) {
   # input : kp = a vector of int (1:30), to identify the feature we want to learn
   
   data <- mx.symbol.Variable("data")
   
-  bdata <- mx.symbol.BatchNorm(data)
+  # bdata <- mx.symbol.BatchNorm(data)
   
-  rdata <- mx.symbol.Reshape(bdata, shape = c(96*96,-1))
+  rdata <- mx.symbol.Reshape(data, shape = c(96*96,-1))
   
-  fc1 <- mx.symbol.FullyConnected(rdata, num_hidden = 200)
+  fc1 <- mx.symbol.FullyConnected(rdata, num_hidden = 100)
   act1 <- mx.symbol.Activation(fc1,act.type="relu")
   
-  fc2 <- mx.symbol.FullyConnected(act1, num_hidden = 200)
+  fc2 <- mx.symbol.FullyConnected(act1, num_hidden = 50)
   act2 <- mx.symbol.Activation(fc2,act.type="relu")
   
   fc3 <- mx.symbol.FullyConnected(act2, num_hidden = length(kp))
@@ -71,7 +71,7 @@ buildModel <- function(kp) {
     ctx = devices,
     num.round = 300,
     array.batch.size = 200,
-    learning.rate = 0.00003,
+    learning.rate = 0.0001,
     momentum = 0.9,
     eval.metric = mx.metric.rmse,
     initializer = mx.init.uniform(0.07),
