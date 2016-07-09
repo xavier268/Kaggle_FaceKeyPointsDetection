@@ -2,7 +2,8 @@
 # training only with those images where that keypoint is fully defined
 # This version will try to compute several keypoints simultaneously
 
-# 
+# unsing convolution (CNN) network
+
 print(date())
 require(mxnet)
 require(dplyr)
@@ -22,15 +23,35 @@ if (!exists("d.train")) {
 
 ## --------------------------------------------------------------------
 # define model version
-m.version <- 1
+m.version <- 2
 buildModel <- function(kp) {
   # input : kp = a vector of int (1:30), to identify the feature we want to learn
   
   data <- mx.symbol.Variable("data")
-  fc1 <- mx.symbol.FullyConnected(data, name = "fc1", num_hidden = 60)
+  
+  rdata <- mx.symbol.Reshape(data, shape = c(96,96,1,-1))
+  
+  fc1  <- mx.symbol.Convolution(data = rdata,  kernel=c(5,5),num.filter=50)
+  act1 <- mx.symbol.Activation(data = fc1, act_type="relu")
+  
+  pl1 <- mx.symbol.Pooling(data=act1, pool.type = "max", kernel=c(2,2), stride=c(1,1)  )
+  
+  # fc2  <- mx.symbol.Convolution(data = pl1,  kernel=c(3,3),num.filter=30)
+  # act2 <- mx.symbol.Activation(data = fc2, act_type="relu")
+  # 
+  # pl2<- mx.symbol.Pooling(data=act2, pool.type = "max", kernel=c(2,2), stride=c(2,2)  )
+  
+  ff <- mx.symbol.Flatten(data=pl1) ## needed after convolution steps ...
+  
+  fc1 <- mx.symbol.FullyConnected(ff, num_hidden = 120)
   act1 <- mx.symbol.Activation(fc1,act.type="relu")
-  fc2 <- mx.symbol.FullyConnected(act1, name = "fc2", num_hidden = length(kp))
-  output <- mx.symbol.LinearRegressionOutput(fc2, name = "output")
+  
+  fc2 <- mx.symbol.FullyConnected(act1, num_hidden = 60)
+  act2 <- mx.symbol.Activation(fc2,act.type="relu")
+  
+  fc3 <- mx.symbol.FullyConnected(act2, num_hidden = length(kp))
+ 
+  output <- mx.symbol.LinearRegressionOutput(fc3, name = "output")
   
   devices <- mx.cpu()   # using 1 CPU
   mx.set.seed(42)
@@ -48,7 +69,8 @@ buildModel <- function(kp) {
   
   # Train the model with the training data
   tic <- Sys.time()
-  print(paste("Starting to train model for keypoint : ", kp))
+  print("Starting to train model for keypoints : ")
+  print(kp)
   print(date())
   
   model <- mx.model.FeedForward.create(
@@ -56,8 +78,8 @@ buildModel <- function(kp) {
     X = X,
     y = y,
     ctx = devices,
-    num.round = 3,
-    array.batch.size = 100,
+    num.round = 15,
+    array.batch.size = 64,
     learning.rate = 0.001,
     momentum = 0.9,
     eval.metric = mx.metric.rmse,
@@ -65,19 +87,12 @@ buildModel <- function(kp) {
     epoch.end.callback =  mx.callback.log.train.metric(10),
     array.layout = "colmajor"
   )
-  print(paste("Finished training model for kp = ",kp))
+  print("Finished training model for kp : ")
+  print(kp)
   print(difftime(Sys.time(), tic))
   return (model)
 }
-## ---------------------------------------------------------------------------
 
-# ## Test training on the first 2 keypoints
-# 
-# mm <- buildModel(1:5)
-# x <- 1:9216
-# dim(x) <- c(9216,1)
-# p <- predict(mm,x,array.layout="colmajor")
-# message("Prediction available in p")
 
 ## ---------------------------------
 ## segment features
