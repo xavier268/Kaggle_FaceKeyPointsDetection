@@ -24,7 +24,7 @@ if (!exists("d.train")) {
 
 ## --------------------------------------------------------------------
 # define model version
-m.version <- 7
+m.version <- 9
 buildModel <- function(kp) {
   # input : kp = a vector of int (1:30), to identify the feature we want to learn
   
@@ -52,11 +52,20 @@ buildModel <- function(kp) {
   X <- d.train[!is.na(rowSums(y)),-(1:30)]
   y <- d.train[!is.na(rowSums(y)),kp]
   
+  # extract sample for cross validation
+  e <- sample.int(nrow(X),500)
+  ye <- y[e,]
+  Xe <- X[e,]
+  y <- y[-e,]
+  X<- X[-e,]
+  
   # then convert to matrix/array, observations per column
   y <- t(data.matrix(y))
   X <- t(data.matrix(X))
+  ye <- t(data.matrix(ye))
+  Xe <- t(data.matrix(Xe))
   
-  
+
   
   # Train the model with the training data
   tic <- Sys.time()
@@ -69,10 +78,11 @@ buildModel <- function(kp) {
     X = X,
     y = y,
     ctx = devices,
-    num.round = 300,
-    array.batch.size = 200,
+    num.round = 500,
+    array.batch.size = 100,
     learning.rate = 0.0001,
     momentum = 0.9,
+    eval.data = list(data=Xe, label=ye),
     eval.metric = mx.metric.rmse,
     initializer = mx.init.uniform(0.07),
     epoch.end.callback =  mx.callback.log.train.metric(10),

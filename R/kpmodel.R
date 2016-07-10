@@ -3,6 +3,7 @@ f1 <- c(1:4,21,22,29,30)
 
 # Build a model to predict all keypoints from the f1 set of keypoints.
 # creates a 9 x 30  matrix object (using closure)
+print("Computing linear regression for kp")
 coefMatrix <- (function() {
   
    # Our learning sets. Rowmajor ...
@@ -21,3 +22,12 @@ predictkp<- function ( x ) {
   x <- data.matrix(cbind(x,rep.int(1,nrow(x)))) # n x 9
   return ( x %*% coefMatrix )
 } 
+
+# compute the rmse on the training set
+sel <- rowSums(d.train[,f1])
+evalKP <- predictkp(d.train[!is.na(sel),f1])
+evalKP <- sqrt(sum((evalKP - d.train[!is.na(sel),f1]) ^2)) / (length(c(evalKP)))
+message("rmse on training set for kp linear inetrpolation : ", evalKP)
+rm(evalKP,sel)
+
+
