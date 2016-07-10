@@ -14,14 +14,15 @@ print(date())
 
 model.name <- "modelDNNInterpol"    # model name
 
-model.eval <- 300                   # nb of eval while training
+model.eval <- FALSE                   # nb of eval while training
                                     # set to FALSE to disable and 
                                     # train to maximum data
 
 model.lr <- 0.0001                  # learning rate
 
-model.round <- 2                    # nbr of round 
+model.round <- 300                  # nbr of round 
 
+mx.set.seed(42)
 
 print(paste("Using model : ", model.name), quote=FALSE)
 

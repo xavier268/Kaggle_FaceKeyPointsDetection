@@ -36,7 +36,6 @@ buildModel <- function(kp) {
   output <- mx.symbol.LinearRegressionOutput(fc3, name = "output")
   
   devices <- mx.cpu()   # using 1 CPU
-  mx.set.seed(42)
   
   # Format training data
   y <- d.train[,kp]

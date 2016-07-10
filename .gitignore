@@ -4,4 +4,4 @@
 .Ruserdata
 *.RData
 Dataset/*
-submissions/*
+R/submissions/*
