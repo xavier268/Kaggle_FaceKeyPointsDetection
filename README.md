@@ -8,5 +8,6 @@
 ## run the script to generate a submission file
 	
         cd ./R
-        Rscript -e "source('g1model.R')"
+        Rscript -e "source('main.R')"
  
+You can select the model to use by adjusting the model name (and parameters) in the main.R file.
