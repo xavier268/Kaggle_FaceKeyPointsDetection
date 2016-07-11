@@ -24,7 +24,7 @@ model.round <- 500                  # nbr of round
 
 mx.set.seed(42)
 
-print(paste("Using model : ", model.name), quote=FALSE)
+print(paste("Using model : ", model.name, ",lr : ",model.lr,", round : ", model.round, ", eval : ", model.eval), quote=FALSE)
 
 # ----------------------------------------------
 
