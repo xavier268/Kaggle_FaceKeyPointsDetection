@@ -11,3 +11,5 @@
         Rscript -e "source('main.R')"
  
 You can select the model to use by adjusting the model name (and parameters) in the main.R file.
+
+Current best score : 3.31958 (rank 37)
