@@ -2,6 +2,9 @@
 #
 # This model will create two models, one to compute the 8 frequent keypoints, 
 # the second one, less precise, because less keypoints, for the rest.
+
+# we use 2 kernels in paralele, a large one to capture face position, 
+# a smaller one to capture features.
 #
 # ======================================
 
@@ -9,7 +12,7 @@
 
 ## --------------------------------------------------------------------
 # define model version
-model.version <- 1
+model.version <- 2
 print(paste0("Model version : ",model.version), quote=FALSE)
 
 
@@ -27,18 +30,21 @@ buildModel <- function(kp) {
   
   rdata <- mx.symbol.Reshape(data, shape = c(96,96,1,-1))
   
-  fc1  <- mx.symbol.Convolution(data = rdata,  kernel=c(5,5),num.filter=5)
-  act1 <- mx.symbol.Activation(data = fc1, act_type="relu")
-  
+  fc1  <- mx.symbol.Convolution(data =rdata,kernel=c(5,5),num.filter = 4)
+  act1 <- mx.symbol.Activation(data=fc1,act_type="relu")
   pl1 <- mx.symbol.Pooling(data=act1, pool.type = "max", kernel=c(2,2), stride=c(1,1)  )
   
-  # fc2  <- mx.symbol.Convolution(data = pl1,  kernel=c(3,3),num.filter=30)
-  # act2 <- mx.symbol.Activation(data = fc2, act_type="relu")
-  # 
-  # pl2<- mx.symbol.Pooling(data=act2, pool.type = "max", kernel=c(2,2), stride=c(2,2)  )
+  ff1 <- mx.symbol.Flatten(data=pl1) 
   
-  ff <- mx.symbol.Flatten(data=pl1) ## needed after convolution steps ...
+  fc2  <- mx.symbol.Convolution(data=rdata,kernel=c(30,30),num.filter = 1)
+  act2 <- mx.symbol.Activation(data=fc2,act_type="relu")
+  pl2 <- mx.symbol.Pooling(data=act2, pool.type = "max", kernel=c(2,2), stride=c(1,1)  )
   
+  ff2 <- mx.symbol.Flatten(data=pl2)
+  
+  cc <- mx.symbol.Concat(list(ff1,ff2), num.args = 2)
+  ff <- mx.symbol.Flatten(cc)
+   
   fc1 <- mx.symbol.FullyConnected(ff, num_hidden = 60)
   act1 <- mx.symbol.Activation(fc1,act.type="relu")
   
@@ -109,19 +115,18 @@ buildModel <- function(kp) {
 ## segment features
 ## ---------------------------------
 
-print("Buiding/loading models", quote=FALSE)
+print("Segmenting features", quote=FALSE)
 f1 <- c(1,2,3,4,21,22,29,30)  # frequently provided, more reliable
 f2 <- 1:30                    # full range
 
+## --------------------------------
+##  Compute full predictions with m2 (less precise)
+## --------------------------------
+
+print("Computing predictions #2", quote=FALSE)
+
 mx.ctx.default(mx.cpu())
 
-if(file.exists(paste0(model.name,"_",1,"-symbol.json"))) {
-  print(paste0("Loading saved model #1 for ",model.name,", version ",model.version))
-  m1 <- mx.model.load(paste0(model.name,"_",1),model.version)
-} else {
-  m1 <- buildModel(f1)
-  mx.model.save(m1,prefix = paste0(model.name,"_",1),model.version)
-}
 if(file.exists(paste0(model.name,"_",2,"-symbol.json"))) {
   print(paste0("Loading saved model #2 for ",model.name,", version ",model.version))
   m2 <- mx.model.load(paste0(model.name,"_",2),model.version)
@@ -129,16 +134,6 @@ if(file.exists(paste0(model.name,"_",2,"-symbol.json"))) {
   m2 <- buildModel(f2)
   mx.model.save(m2,prefix = paste0(model.name,"_",2),model.version)
 }
-
-
-
-
-
-## --------------------------------
-##  Compute full predictions with m2 (less precise)
-## --------------------------------
-
-print("Computing predictions")
 
 x <- t(data.matrix(d.test[,-1]))
 preds <- predict(m2,x,array.layout="colmajor")
@@ -150,6 +145,18 @@ gc()
 # --------------------------------
 ## Now, we overwite the core 8 kp with with m1 (more precise)
 # --------------------------------
+
+print("Computing predictions #1", quote=FALSE)
+
+mx.ctx.default(mx.cpu())
+
+if(file.exists(paste0(model.name,"_",1,"-symbol.json"))) {
+  print(paste0("Loading saved model #1 for ",model.name,", version ",model.version))
+  m1 <- mx.model.load(paste0(model.name,"_",1),model.version)
+} else {
+  m1 <- buildModel(f1)
+  mx.model.save(m1,prefix = paste0(model.name,"_",1),model.version)
+}
 
 preds1 <- predict(m1,x,array.layout="colmajor")
 preds[f1,] <- preds1[1:8,]

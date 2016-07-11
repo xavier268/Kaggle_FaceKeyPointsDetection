@@ -12,7 +12,7 @@ print(date())
 
 # -----    Setting model parameters  -----------------------------
 
-model.name <- "modelDoubleNN"    # model name
+model.name <- "modelDoubleConvNN"    # model name
 
 model.eval <- FALSE                 # nb of eval while training
                                     # set to FALSE to disable and 
@@ -20,7 +20,7 @@ model.eval <- FALSE                 # nb of eval while training
 
 model.lr <- 0.0001                  # learning rate
 
-model.round <- 300                  # nbr of round 
+model.round <- 500                  # nbr of round 
 
 mx.set.seed(42)
 
