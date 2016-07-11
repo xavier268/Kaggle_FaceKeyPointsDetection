@@ -1,0 +1,151 @@
+{
+  "nodes": [
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "data", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Reshape", 
+      "param": {
+        "keep_highest": "False", 
+        "shape": "(-1,1,96,96)", 
+        "target_shape": "(0,0)"
+      }, 
+      "name": "reshape1", 
+      "inputs": [[0, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "convolution1_weight", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "convolution1_bias", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Convolution", 
+      "param": {
+        "cudnn_tune": "limited_workspace", 
+        "dilate": "(1,1)", 
+        "kernel": "(5,5)", 
+        "no_bias": "False", 
+        "num_filter": "5", 
+        "num_group": "1", 
+        "pad": "(0,0)", 
+        "stride": "(1,1)", 
+        "workspace": "512"
+      }, 
+      "name": "convolution1", 
+      "inputs": [[1, 0], [2, 0], [3, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Activation", 
+      "param": {"act_type": "relu"}, 
+      "name": "activation2", 
+      "inputs": [[4, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Pooling", 
+      "param": {
+        "global_pool": "False", 
+        "kernel": "(2,2)", 
+        "pad": "(0,0)", 
+        "pool_type": "max", 
+        "stride": "(1,1)"
+      }, 
+      "name": "pooling1", 
+      "inputs": [[5, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Flatten", 
+      "param": {}, 
+      "name": "flatten1", 
+      "inputs": [[6, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "fullyconnected2_weight", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "fullyconnected2_bias", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "FullyConnected", 
+      "param": {
+        "no_bias": "False", 
+        "num_hidden": "60"
+      }, 
+      "name": "fullyconnected2", 
+      "inputs": [[7, 0], [8, 0], [9, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "Activation", 
+      "param": {"act_type": "relu"}, 
+      "name": "activation3", 
+      "inputs": [[10, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "fullyconnected3_weight", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "fullyconnected3_bias", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "FullyConnected", 
+      "param": {
+        "no_bias": "False", 
+        "num_hidden": "30"
+      }, 
+      "name": "fullyconnected3", 
+      "inputs": [[11, 0], [12, 0], [13, 0]], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "null", 
+      "param": {}, 
+      "name": "output_label", 
+      "inputs": [], 
+      "backward_source_id": -1
+    }, 
+    {
+      "op": "LinearRegressionOutput", 
+      "param": {"grad_scale": "1"}, 
+      "name": "output", 
+      "inputs": [[14, 0], [15, 0]], 
+      "backward_source_id": -1
+    }
+  ], 
+  "arg_nodes": [0, 2, 3, 8, 9, 12, 13, 15], 
+  "heads": [[16, 0]]
+}
