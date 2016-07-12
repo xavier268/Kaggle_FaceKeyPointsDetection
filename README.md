@@ -12,4 +12,4 @@
  
 You can select the model to use by adjusting the model name (and parameters) in the main.R file.
 
-Current best score : 3.12247 (rank 36)
+Current best score : 3.12247 (rank 36) 
