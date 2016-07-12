@@ -18,9 +18,9 @@ model.eval <- FALSE                 # nb of eval while training
                                     # set to FALSE to disable and 
                                     # train to maximum data
 
-model.lr <- 0.00003                 # learning rate
+model.lr <- 0.00001                # learning rate
 
-model.round <- 500                  # nbr of round 
+model.round <- 2000                  # nbr of round 
 
 mx.set.seed(42)
 

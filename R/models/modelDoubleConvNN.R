@@ -29,8 +29,24 @@ buildModel <- function(kp, modeltype = 1) {
     # model type 1
     data <- mx.symbol.Variable("data")
     
+    rdata <- mx.symbol.Reshape(data, shape = c(96, 96, 1,-1))
+    conv1  <- mx.symbol.Convolution(data = rdata,
+                                    kernel = c(15, 15),
+                                    num.filter = 10)
+    act1 <- mx.symbol.Activation(data = conv1, act_type = "relu")
+    pl1 <- mx.symbol.Pooling(
+      data = act1,
+      pool.type = "max",
+      kernel = c(2, 2),
+      stride = c(1, 1)
+    )
+    ff1 <- mx.symbol.Flatten(data = pl1)
+    
     fc1 <- mx.symbol.FullyConnected(data, num_hidden = 200)
     act1 <- mx.symbol.Activation(fc1, act.type = "relu")
+    
+    cc <- mx.symbol.Concat(list(ff1,act1), num.arg=2)
+    
     
     fc2 <- mx.symbol.FullyConnected(act1, num_hidden = 50)
     act2 <- mx.symbol.Activation(fc2, act.type = "relu")
