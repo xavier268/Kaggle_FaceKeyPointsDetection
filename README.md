@@ -8,8 +8,8 @@
 ## run the script to generate a submission file
 	
         cd ./R
-        Rscript -e "source('main.R')"
+        Rscript -e "source('main.R') | tee -a output.log"
  
 You can select the model to use by adjusting the model name (and parameters) in the main.R file.
 
-Current best score : 3.31958 (rank 37)
+Current best score : 3.12247 (rank 36)
