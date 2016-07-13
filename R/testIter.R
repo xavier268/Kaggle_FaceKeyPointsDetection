@@ -1,9 +1,14 @@
 # Testing use of Iterators and custum iterators for data augmentation
+# We just need to define 3 functions : iter.next, reset and value on an object, 
+# then make it the right class (same as a legitimate Array iterator) to be able to use it 
+# as a new iterator.
+
 require("dplyr")
 require("tidyr")
 require("mxnet")
 
 
+# ===================================
 # define dummy, simple, stupid model
 data <- mx.symbol.Variable("data")
 
@@ -12,11 +17,15 @@ dummy <- mx.symbol.LinearRegressionOutput(fc3, name = "output")
 
 devices <- mx.cpu()   # using 1 CPU
 
+
+# ==================================
 # Format training data, colMajor !
 X <- matrix(101:300, 10, 20)  # 10 values, 20 occurences
 y <- matrix(1:40, 2, 20)      #  2 output values , 20 occurences
 
-# define shadow iterator
+
+# ==================================
+# define backend iterator
 it <-
   mx.io.arrayiter(
     data = X,
@@ -25,29 +34,29 @@ it <-
     batch.size = 7
   )
 
-# define myit as a wrapper around it
+
+
+# ===================================
+# define frontend iterator
+# define myit as a wrapper around 'it', to create a new iterator 
+# that transforms its data
 myit <- list()
-# myit$finalize <- function() {
-#   stop("Finalize should not be called on myit !")
-# }
-# myit$initialize <- function() {
-#   stop("Initialize should not be called on myit !")
-# }
+
 myit$iter.next <- function() {
   print("Hi there - inter.next !")
   it$iter.next()
 }
-myit$num.pad <- function() {
-  print("Hi there - num.pad !")
-  it$num.pad()
-}
+
 myit$reset <- function() {
   print("Hi there - reset !")
   it$reset()
 }
 
+# We transform data on the fly when the value is extracted ...
+# This ensures that the right proportion of images vs. classes is maintained
+
 myit$value <- function() {
-  #print("Hi there - value !")
+  print("Hi there - value !")
   #print("Transforming values for y")
   i <- it$value()
   #message("dim of x batch : ", paste(dim(i$data)," "))
@@ -67,6 +76,8 @@ class(myit) <- "Rcpp_MXArrayDataIter" # just an iterator
 
 message("Is it an S4 object : ", isS4(it))
 message("Is myit an S4 object : ", isS4(myit))
+
+
 
 
 
